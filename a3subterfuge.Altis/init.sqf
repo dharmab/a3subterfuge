@@ -1,5 +1,6 @@
 _RESISTANCE_TEAM_PRESENT = ((resistance countSide allUnits) > 0);
 _INGRESS_DISTANCE = 1000;
+_HINT_DISTANCE = 120;
 
 // Expose a variable to the public mission namespace
 // _param_name variable name
@@ -142,21 +143,31 @@ _fnc_initGameMode = {
             );
         };
 
-        ["mission_ingress_init", true] call _fnc_exportToPublicMissionNamespace;
-        
-         // Spawn police MRAP
+        _meeting_position = [0, 0];
+        waitUntil {
+            // Take mean location size and divide by two again to reduce variable in distance from team spawns
+            _location_size = ((size _location select 0) + (size _location select 1) / 4);
+            _meeting_position = [position _location, random _location_size, random 360] call _fnc_computeOffset;
+            !([_meeting_position] call _fnc_isPositionInWater);
+        };
+        _meeting_position_hint = [_meeting_position, random _HINT_DISTANCE, random 360] call _fnc_computeOffset;
+
+         // Initialze units;
         _mrap = "B_MRAP_01_F" createVehicle [_resistance_ingress_position select 0, _resistance_ingress_position select 1, 0];    
         {
             _ingress_position = [0, 0];
             
             if (side _x == west) then {
                 _ingress_position = _west_ingress_position;
+                [[_meeting_position], "scripts\createMeetingMarkerLocal.sqf"] call _fnc_remoteExecVm;
             };
             if (side _x == resistance) then {
                 _ingress_position = _resistance_ingress_position;
+                [[_meeting_position_hint, _HINT_DISTANCE], "scripts\createHintMarkerLocal.sqf"] call _fnc_remoteExecVm;
             };
             if (side _x == east) then {
                _ingress_position = _east_ingress_position;
+                [[_meeting_position], "scripts\createMeetingMarkerLocal.sqf"] call _fnc_remoteExecVm;
             };
 
             if (side _x != resistance) then {
@@ -166,10 +177,12 @@ _fnc_initGameMode = {
                 [[_x, _mrap], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
             };
         } forEach allUnits;
+
+        ["mission_gameMode_init", true] call _fnc_exportToPublicMissionNamespace;
     };
 
     waitUntil {
-        missionNamespace getVariable "mission_ingress_init";
+        missionNamespace getVariable "mission_gameMode_init";
     };
 };
 
