@@ -1,6 +1,16 @@
 _RESISTANCE_TEAM_PRESENT = ((resistance countSide allUnits) > 0);
 _INGRESS_DISTANCE = 1000;
 
+// Expose a variable to the public mission namespace
+// _param_name variable name
+// _param_value variable value
+_fnc_exportToPublicMissionNamespace = {
+    _param_name = _this select 0;
+    _param_value = _this select 1;
+    missionNamespace setVariable [_param_name, _param_value];
+    publicVariable _param_name;
+};
+
 _fnc_applyLoadouts = {
     {
         _script = "";
@@ -115,62 +125,71 @@ _fnc_computeOffset = {
 };
 
 _fnc_initGameMode = {
-    _location = "";
-    _west_ingress_position = [0, 0];
-    _resistance_ingress_position = [0, 0];
-    _east_ingress_position = [0, 0];
-    waitUntil {
-        _location = [] call _fnc_selectRandomLocation;
+    missionNamespace setVariable ["mission_ingress_init", false];
 
-        _west_ingress_angle = random 360;
-        _east_ingress_angle = 0;
-        _resistance_ingress_angle = 0;
-        if (_RESISTANCE_TEAM_PRESENT) then {
-            _direction = [-1, 1] call BIS_fnc_selectRandom;
-            _east_ingress_angle = _west_ingress_angle + (120 * _direction);
-            _resistance_ingress_angle = _east_ingress_angle + (120 * _direction);
-        } else {
-            _east_ingress_angle = _west_ingress_angle + 180;
+    if (isServer) then {
+        _location = "";
+        _west_ingress_position = [0, 0];
+        _resistance_ingress_position = [0, 0];
+        _east_ingress_position = [0, 0];
+
+        waitUntil {
+            _location = [] call _fnc_selectRandomLocation;
+
+            _west_ingress_angle = random 360;
+            _east_ingress_angle = 0;
+            _resistance_ingress_angle = 0;
+            if (_RESISTANCE_TEAM_PRESENT) then {
+                _direction = [-1, 1] call BIS_fnc_selectRandom;
+                _east_ingress_angle = _west_ingress_angle + (120 * _direction);
+                _resistance_ingress_angle = _east_ingress_angle + (120 * _direction);
+            } else {
+                _east_ingress_angle = _west_ingress_angle + 180;
+            };
+
+            _west_ingress_position = [position _location, _INGRESS_DISTANCE, _west_ingress_angle] call _fnc_computeOffset;
+            _resistance_ingress_position = [position _location, _INGRESS_DISTANCE, _resistance_ingress_angle] call _fnc_computeOffset;
+            _east_ingress_position = [position _location, _INGRESS_DISTANCE, _east_ingress_angle] call _fnc_computeOffset;
+            (
+                !([_west_ingress_position] call _fnc_isPositionInWater) &&
+                !([_resistance_ingress_position] call _fnc_isPositionInWater) &&
+                !([_east_ingress_position] call _fnc_isPositionInWater)
+            );
         };
 
-        _west_ingress_position = [position _location, _INGRESS_DISTANCE, _west_ingress_angle] call _fnc_computeOffset;
-        _resistance_ingress_position = [position _location, _INGRESS_DISTANCE, _resistance_ingress_angle] call _fnc_computeOffset;
-        _east_ingress_position = [position _location, _INGRESS_DISTANCE, _east_ingress_angle] call _fnc_computeOffset;
-        (
-            !([_west_ingress_position] call _fnc_isPositionInWater) &&
-            !([_resistance_ingress_position] call _fnc_isPositionInWater) &&
-            !([_east_ingress_position] call _fnc_isPositionInWater)
-        );
+        ["mission_ingress_init", true] call _fnc_exportToPublicMissionNamespace;
+        
+         // Spawn police MRAP
+        _mrap = "B_MRAP_01_F" createVehicle [_resistance_ingress_position select 0, _resistance_ingress_position select 1, 0];    
+        {
+            _ingress_position = [0, 0];
+            
+            if (side _x == west) then {s
+                _ingress_position = _west_ingress_position;
+            };
+            if (side _x == resistance) then {
+                _ingress_position = _resistance_ingress_position;
+            };
+            if (side _x == east) then {
+               _ingress_position = _east_ingress_position;
+            };
+
+            if (side _x != resistance) then {
+                _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
+                [[_x, _atv], _fnc_moveInAvailableVehiclePosition] call BIS_fnc_MP;
+            } else {
+                [[_x, _mrap] _fnc_moveInAvailableVehiclePosition] call BIS_fnc_MP;
+                if (!(_x in _mrap)) then {
+                    _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
+                    [_x, _atv] call _fnc_moveInAvailableVehiclePosition;
+                };
+            };
+        } forEach allUnits;
     };
 
-    // Spawn police MRAP
-    _mrap = "B_MRAP_01_F" createVehicle [_resistance_ingress_position select 0, _resistance_ingress_position select 1, 0];
-
-    {
-        _ingress_position = [0, 0];
-        if (side _x == west) then {
-            _ingress_position = _west_ingress_position;
-        };
-        if (side _x == resistance) then {
-            _ingress_position = _resistance_ingress_position;
-        };
-        if (side _x == east) then {
-           _ingress_position = _east_ingress_position;
-        };
-
-        if (side _x != resistance) then {
-            _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
-            _x moveInDriver _atv;
-        } else {
-            [_x, _mrap] call _fnc_moveInAvailableVehiclePosition;
-            if (!(_x in _mrap)) then {
-                _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
-                _x moveInDriver _atv;
-            };
-        };
-    } forEach allUnits;
-
-    _location;
+    waitUntil {
+        missionNamespace getVariable "mission_ingress_init";
+    };
 };
 
 _fnc_main = {
