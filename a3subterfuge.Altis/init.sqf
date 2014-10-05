@@ -164,10 +164,6 @@ _fnc_initGameMode = {
                 [[_x, _atv], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
             } else {
                 [[_x, _mrap], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
-                if (!(_x in _mrap)) then {
-                    _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
-                    [[_x, _atv], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
-                };
             };
         } forEach allUnits;
     };
