@@ -37,32 +37,13 @@ _fnc_isPositionInWater = {
     (_height <= -1)
 };
 
-// Attempts to move unit to an available seat in the vehicle. If no seats are available,
-// move the unit next to the vehicle.
-// _param_unit unit to move
-// _param_vehicle unit to move unit into
-_fnc_moveInAvailableVehiclePosition = {
-    _param_unit = _this select 0;
-    _param_vehicle = _this select 1;
-
-    // Fuck this shitty language
-    if ((_param_vehicle emptyPositions "Driver") > 0) then {
-        _param_unit moveInDriver _param_vehicle;
-    } else {
-        if ((_param_vehicle emptyPositions "Commander") > 0) then {
-            _param_unit moveInCommander _param_vehicle;
-        } else {
-            if ((_param_vehicle emptyPositions "Gunner") > 0) then {
-                _param_unit moveInGunner _param_vehicle;
-            } else {
-                if ((_param_vehicle emptyPositions "Cargo") > 0) then {
-                    _param_unit moveInCargo _param_vehicle;
-                } else {
-                    _param_unit setPos (position _param_vehicle);
-                };
-            };
-        };
-    };
+// Helper function for remote execution of an SQF script in a scheduled environment.
+// _param_args array of arguments to pass to script
+// _param_script path to script to execute remotely
+_fnc_remoteExecVm = {
+    _param_args = _this select 0;
+    _param_script = _this select 1;
+    [[_param_args, _param_script], "BIS_fnc_execVM", true, true] call BIS_fnc_MP;
 };
 
 // Returns a random location on the map.
@@ -164,7 +145,7 @@ _fnc_initGameMode = {
         {
             _ingress_position = [0, 0];
             
-            if (side _x == west) then {s
+            if (side _x == west) then {
                 _ingress_position = _west_ingress_position;
             };
             if (side _x == resistance) then {
@@ -176,12 +157,12 @@ _fnc_initGameMode = {
 
             if (side _x != resistance) then {
                 _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
-                [[_x, _atv], _fnc_moveInAvailableVehiclePosition] call BIS_fnc_MP;
+                [[_x, _atv], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
             } else {
-                [[_x, _mrap] _fnc_moveInAvailableVehiclePosition] call BIS_fnc_MP;
+                [[_x, _mrap], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
                 if (!(_x in _mrap)) then {
                     _atv = "C_Quadbike_01_F" createVehicle [_ingress_position select 0, _ingress_position select 1, 0];
-                    [_x, _atv] call _fnc_moveInAvailableVehiclePosition;
+                    [[_x, _atv], "scripts\moveInAvailableVehiclePosition.sqf"] call _fnc_remoteExecVm;
                 };
             };
         } forEach allUnits;
