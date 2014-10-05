@@ -74,7 +74,7 @@ _fnc_computeOffset = {
         _angle = 360 + _angle;
     };
 
-    // use the quadrant and angle to determine x and y offsets
+    // use the quadrant and angle to determine ratio and sign of x and y offsets
     _x_offset_direction = 1;
     _y_offset_direction = 1;
     _x_to_y_ratio = 0.0;
@@ -95,10 +95,14 @@ _fnc_computeOffset = {
         _x_offset_direction = -1;
     };
 
-    _x_offset = _param_distance * _x_to_y_ratio;
-    _y_offset = _param_distance - _x_offset;
-    _x_offset = _x_offset * _x_offset_direction;
-    _y_offset = _y_offset * _y_offset_direction;
+    // The square of the hypotenuse (distance from origin) equals the sum of the squares
+    // of the two legs (x and y offsets)
+    _offset_sum_of_squares = _param_distance * _param_distance;
+    _x_offset_square = _offset_sum_of_squares * _x_to_y_ratio;
+    _y_offset_square = _offset_sum_of_squares - _x_offset_square;
+
+    _x_offset = (sqrt _x_offset_square) * _x_offset_direction;
+    _y_offset = (sqrt _y_offset_square) * _y_offset_direction;
 
     // Apply offset to origin
     _position = [(_param_origin select 0) + _x_offset, (_param_origin select 1) + _y_offset];
